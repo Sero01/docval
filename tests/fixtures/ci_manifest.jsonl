@@ -1,0 +1,3 @@
+{"pdf": "tests/fixtures/ci_docs/stmt_0000.pdf", "gold": "tests/fixtures/ci_docs/stmt_0000.json", "source": "datagen", "route_hint": "native"}
+{"pdf": "tests/fixtures/ci_docs/stmt_0001.pdf", "gold": "tests/fixtures/ci_docs/stmt_0001.json", "source": "datagen", "route_hint": "native"}
+{"pdf": "tests/fixtures/ci_docs/stmt_0002.pdf", "gold": "tests/fixtures/ci_docs/stmt_0002.json", "source": "datagen", "route_hint": "native"}

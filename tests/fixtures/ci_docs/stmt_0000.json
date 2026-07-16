@@ -1,0 +1,165 @@
+{
+  "bank_name": "Harborview Bank",
+  "account_number": "579736057174",
+  "currency": "INR",
+  "period_start": "2026-04-01",
+  "period_end": "2026-04-30",
+  "opening_balance": "154903.5",
+  "closing_balance": "118194.35",
+  "transactions": [
+    {
+      "txn_date": "2026-04-03",
+      "description": "ATM WDL CONNAUGHT PL",
+      "debit": "48278.17",
+      "credit": null,
+      "running_balance": "106625.33"
+    },
+    {
+      "txn_date": "2026-04-03",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": null,
+      "credit": "37388.28",
+      "running_balance": "144013.61"
+    },
+    {
+      "txn_date": "2026-04-06",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": null,
+      "credit": "24241.26",
+      "running_balance": "168254.87"
+    },
+    {
+      "txn_date": "2026-04-06",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": null,
+      "credit": "6542.6",
+      "running_balance": "174797.47"
+    },
+    {
+      "txn_date": "2026-04-06",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": "48387.21",
+      "credit": null,
+      "running_balance": "126410.26"
+    },
+    {
+      "txn_date": "2026-04-08",
+      "description": "SERVICE CHARGE",
+      "debit": null,
+      "credit": "8990.11",
+      "running_balance": "135400.37"
+    },
+    {
+      "txn_date": "2026-04-09",
+      "description": "SERVICE CHARGE",
+      "debit": "26194.64",
+      "credit": null,
+      "running_balance": "109205.73"
+    },
+    {
+      "txn_date": "2026-04-12",
+      "description": "ATM WDL CONNAUGHT PL",
+      "debit": null,
+      "credit": "49222.04",
+      "running_balance": "158427.77"
+    },
+    {
+      "txn_date": "2026-04-13",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": "48371.24",
+      "credit": null,
+      "running_balance": "110056.53"
+    },
+    {
+      "txn_date": "2026-04-15",
+      "description": "POS/GROCERY MART",
+      "debit": "41623.43",
+      "credit": null,
+      "running_balance": "68433.10"
+    },
+    {
+      "txn_date": "2026-04-16",
+      "description": "NEFT/SALARY/ACME LTD",
+      "debit": "916.52",
+      "credit": null,
+      "running_balance": "67516.58"
+    },
+    {
+      "txn_date": "2026-04-19",
+      "description": "SERVICE CHARGE",
+      "debit": "7421.18",
+      "credit": null,
+      "running_balance": "60095.40"
+    },
+    {
+      "txn_date": "2026-04-22",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": "5356.82",
+      "credit": null,
+      "running_balance": "54738.58"
+    },
+    {
+      "txn_date": "2026-04-24",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": "25703.63",
+      "credit": null,
+      "running_balance": "29034.95"
+    },
+    {
+      "txn_date": "2026-04-25",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": null,
+      "credit": "10393.39",
+      "running_balance": "39428.34"
+    },
+    {
+      "txn_date": "2026-04-25",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": null,
+      "credit": "524.03",
+      "running_balance": "39952.37"
+    },
+    {
+      "txn_date": "2026-04-27",
+      "description": "NEFT/SALARY/ACME LTD",
+      "debit": null,
+      "credit": "22405.62",
+      "running_balance": "62357.99"
+    },
+    {
+      "txn_date": "2026-04-27",
+      "description": "CHEQUE DEPOSIT 004512",
+      "debit": "41733.01",
+      "credit": null,
+      "running_balance": "20624.98"
+    },
+    {
+      "txn_date": "2026-04-30",
+      "description": "POS/GROCERY MART",
+      "debit": null,
+      "credit": "34057.49",
+      "running_balance": "54682.47"
+    },
+    {
+      "txn_date": "2026-04-30",
+      "description": "CHEQUE DEPOSIT 004512",
+      "debit": null,
+      "credit": "49449.39",
+      "running_balance": "104131.86"
+    },
+    {
+      "txn_date": "2026-04-30",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": null,
+      "credit": "45425.51",
+      "running_balance": "149557.37"
+    },
+    {
+      "txn_date": "2026-04-30",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": "31363.02",
+      "credit": null,
+      "running_balance": "118194.35"
+    }
+  ]
+}

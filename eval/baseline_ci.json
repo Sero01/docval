@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-07-16T01:37:19.549083+00:00",
+  "model": "google/gemini-2.5-flash",
+  "manifest": "tests/fixtures/ci_manifest.jsonl",
+  "n_docs": 3,
+  "aggregates": {
+    "txn_precision": 1.0,
+    "txn_recall": 1.0,
+    "txn_f1": 1.0,
+    "header_field_accuracy": 1.0,
+    "validation_pass_rate": 1.0,
+    "error_rate": 0.0,
+    "mean_cost_usd": 0.0,
+    "mean_latency_s": 0.0
+  },
+  "per_doc": [
+    {
+      "pdf": "tests/fixtures/ci_docs/stmt_0000.pdf",
+      "route": "native",
+      "source": "datagen",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "n_pred": 22,
+      "n_gold": 22,
+      "n_matched": 22,
+      "header_ok": 1.0,
+      "validation_pass": true
+    },
+    {
+      "pdf": "tests/fixtures/ci_docs/stmt_0001.pdf",
+      "route": "native",
+      "source": "datagen",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "n_pred": 12,
+      "n_gold": 12,
+      "n_matched": 12,
+      "header_ok": 1.0,
+      "validation_pass": true
+    },
+    {
+      "pdf": "tests/fixtures/ci_docs/stmt_0002.pdf",
+      "route": "native",
+      "source": "datagen",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "n_pred": 13,
+      "n_gold": 13,
+      "n_matched": 13,
+      "header_ok": 1.0,
+      "validation_pass": true
+    }
+  ]
+}

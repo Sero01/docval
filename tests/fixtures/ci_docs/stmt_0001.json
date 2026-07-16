@@ -1,0 +1,95 @@
+{
+  "bank_name": "Meridian Bank",
+  "account_number": "375384766743",
+  "currency": "INR",
+  "period_start": "2026-03-01",
+  "period_end": "2026-03-30",
+  "opening_balance": "29552.84",
+  "closing_balance": "95169.41",
+  "transactions": [
+    {
+      "txn_date": "2026-03-03",
+      "description": "POS/GROCERY MART",
+      "debit": null,
+      "credit": "18067.29",
+      "running_balance": "47620.13"
+    },
+    {
+      "txn_date": "2026-03-05",
+      "description": "NEFT/SALARY/ACME LTD",
+      "debit": null,
+      "credit": "40095.74",
+      "running_balance": "87715.87"
+    },
+    {
+      "txn_date": "2026-03-07",
+      "description": "SERVICE CHARGE",
+      "debit": null,
+      "credit": "45513.37",
+      "running_balance": "133229.24"
+    },
+    {
+      "txn_date": "2026-03-07",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": null,
+      "credit": "19089.61",
+      "running_balance": "152318.85"
+    },
+    {
+      "txn_date": "2026-03-08",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": "37084.66",
+      "credit": null,
+      "running_balance": "115234.19"
+    },
+    {
+      "txn_date": "2026-03-08",
+      "description": "ATM WDL CONNAUGHT PL",
+      "debit": "12862.83",
+      "credit": null,
+      "running_balance": "102371.36"
+    },
+    {
+      "txn_date": "2026-03-10",
+      "description": "ATM WDL CONNAUGHT PL",
+      "debit": "43689.72",
+      "credit": null,
+      "running_balance": "58681.64"
+    },
+    {
+      "txn_date": "2026-03-11",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": "20618.2",
+      "credit": null,
+      "running_balance": "38063.44"
+    },
+    {
+      "txn_date": "2026-03-11",
+      "description": "IMPS/TRANSFER/9821",
+      "debit": null,
+      "credit": "46121.25",
+      "running_balance": "84184.69"
+    },
+    {
+      "txn_date": "2026-03-11",
+      "description": "UPI/CRED/PAYMENT",
+      "debit": null,
+      "credit": "23877.18",
+      "running_balance": "108061.87"
+    },
+    {
+      "txn_date": "2026-03-14",
+      "description": "SERVICE CHARGE",
+      "debit": null,
+      "credit": "24222.66",
+      "running_balance": "132284.53"
+    },
+    {
+      "txn_date": "2026-03-17",
+      "description": "POS/GROCERY MART",
+      "debit": "37115.12",
+      "credit": null,
+      "running_balance": "95169.41"
+    }
+  ]
+}
