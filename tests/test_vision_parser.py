@@ -10,16 +10,18 @@ from docval.parsers.vision import parse_vision, render_pages
 class StubClient:
     """Mimics openai chat.completions.create, returns a canned statement."""
 
-    def __init__(self, payload: dict):
+    def __init__(self, payload: dict, finish_reason: str = "stop"):
         self._payload = payload
+        self._finish_reason = finish_reason
         self.last_kwargs = None
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
     def _create(self, **kwargs):
         self.last_kwargs = kwargs
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(
-                content=json.dumps(self._payload)))],
+            choices=[SimpleNamespace(
+                message=SimpleNamespace(content=json.dumps(self._payload)),
+                finish_reason=self._finish_reason)],
             usage=SimpleNamespace(prompt_tokens=1000, completion_tokens=500))
 
 
@@ -72,6 +74,63 @@ def test_parse_vision_builds_statement_and_usage(tmp_path):
     assert stub.last_kwargs["model"] == "google/gemini-2.5-flash-lite"
     assert stub.last_kwargs["response_format"]["type"] == "json_schema"
     assert stub.last_kwargs["temperature"] == 0  # extraction must be greedy
+    # thinking eats the output budget and truncates long statements mid-JSON
+    assert stub.last_kwargs["max_tokens"] >= 32768
+    assert stub.last_kwargs["extra_body"]["reasoning"]["enabled"] is False
+
+
+def test_truncated_output_raises_named_error(tmp_path):
+    import pytest
+
+    from docval.parsers.vision import TruncatedOutputError
+
+    stub = StubClient(PAYLOAD, finish_reason="length")
+    with pytest.raises(TruncatedOutputError):
+        parse_vision(_scan_pdf(tmp_path), client=stub)
+
+
+def test_printed_formats_normalized(tmp_path):
+    # Models copy what is printed: comma-grouped amounts, currency junk,
+    # and human date formats. Normalization must be deterministic code.
+    payload = {
+        "bank_name": "Royal Commercial Bank", "account_number": "42146130224",
+        "currency": "INR", "period_start": "01 Jan 2024",
+        "period_end": "31/03/2024",
+        "opening_balance": "7,79,226.50", "closing_balance": "Rs. 2,482,196.19",
+        "transactions": [{"txn_date": "02-01-2024", "description": "NEFT",
+                          "debit": None, "credit": "₹1,544.32",
+                          "running_balance": "7,80,770.82"}],
+    }
+    from datetime import date
+    from decimal import Decimal
+
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    assert doc.period_start == date(2024, 1, 1)
+    assert doc.period_end == date(2024, 3, 31)
+    assert doc.opening_balance == Decimal("779226.50")
+    assert doc.closing_balance == Decimal("2482196.19")
+    assert doc.transactions[0].credit == Decimal("1544.32")
+    assert doc.transactions[0].txn_date == date(2024, 1, 2)
+
+
+def test_flaky_invalid_json_retried_once(tmp_path):
+    class FlakyStub(StubClient):
+        def __init__(self, payload):
+            super().__init__(payload)
+            self.calls = 0
+
+        def _create(self, **kwargs):
+            self.calls += 1
+            resp = super()._create(**kwargs)
+            if self.calls == 1:  # provider drops the response mid-stream
+                resp.choices[0].message.content = '{\n  "bank_name": "Roy'
+            return resp
+
+    stub = FlakyStub(PAYLOAD)
+    doc, usage = parse_vision(_scan_pdf(tmp_path), client=stub)
+    assert stub.calls == 2
+    assert doc.bank_name == "Meridian Bank"
+    assert usage.input_tokens == 2000  # both attempts were billed
 
 
 def test_zero_amounts_coerced_to_none(tmp_path):
