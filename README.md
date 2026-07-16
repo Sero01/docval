@@ -90,6 +90,14 @@ Scanned statements run ~$0.005–0.02 each with Gemini 2.5 Flash
 
 Custom harness (`eval/run_eval.py`): per-field header accuracy, transaction
 P/R/F1 (date+amount exact, fuzzy description), validation pass rate, cost and
-latency per doc. `eval/compare.py` is the CI regression gate — the build fails
+latency per doc.
+
+Honesty note on the native path: `parsers/native.py` targets datagen's
+template A **by design** (native parsers are per-layout), so its accuracy on
+template-A docs measures multi-page/table handling, not layout generalization.
+Datagen's template B (different labels, DD/MM/YYYY dates, Indian lakh digit
+grouping) is deliberately *not* native-parseable — it exercises the
+triage → vision fallback, and layout generalization is measured on the vision
+path against AgamiAI docs and template-B docs. `eval/compare.py` is the CI regression gate — the build fails
 if txn F1, header accuracy, or validation pass rate drop >0.01 below the
 committed baseline.

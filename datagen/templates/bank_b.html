@@ -1,0 +1,33 @@
+<html><head><style>
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 9.5pt; }
+  .masthead { background: #14324f; color: #fff; padding: 10px 14px; }
+  .masthead h1 { font-size: 15pt; margin: 0; }
+  .acct { margin: 10px 0; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  thead th { background: #dde6ee; border-bottom: 2px solid #14324f; padding: 5px; }
+  td { border-bottom: 1px dotted #999; padding: 4px 5px; }
+  th.num, td.num { text-align: right; }
+  .summary { margin-top: 10px; font-weight: bold; }
+</style></head><body>
+<div class="masthead"><h1>{{ doc.bank_name }}</h1>
+<div>Statement of Account</div></div>
+<div class="acct">
+A/C No: {{ doc.account_number }} &nbsp;|&nbsp; CUR: {{ doc.currency }}<br>
+Stmt Period: {{ ddmmyyyy(doc.period_start) }} - {{ ddmmyyyy(doc.period_end) }}<br>
+Balance B/F: {{ money_inr(doc.opening_balance) }}
+</div>
+<table>
+<thead><tr><th>Txn Date</th><th>Particulars</th><th class="num">Withdrawal (Dr)</th>
+    <th class="num">Deposit (Cr)</th><th class="num">Running Balance</th></tr></thead>
+<tbody>
+{% for t in doc.transactions %}
+<tr><td>{{ ddmmyyyy(t.txn_date) }}</td><td>{{ t.description }}</td>
+    <td class="num">{{ money_inr(t.debit) }}</td>
+    <td class="num">{{ money_inr(t.credit) }}</td>
+    <td class="num">{{ money_inr(t.running_balance) }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+<div class="summary">Closing Balance as on {{ ddmmyyyy(doc.period_end) }}:
+{{ money_inr(doc.closing_balance) }}</div>
+</body></html>

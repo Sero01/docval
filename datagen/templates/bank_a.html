@@ -12,8 +12,8 @@ Statement Period: {{ doc.period_start.isoformat() }} to {{ doc.period_end.isofor
 <p>Opening Balance: {{ money(doc.opening_balance) }}<br>
 Closing Balance: {{ money(doc.closing_balance) }}</p>
 <table>
-<tr><th>Date</th><th>Description</th><th class="num">Debit</th>
-    <th class="num">Credit</th><th class="num">Balance</th></tr>
+<thead><tr><th>Date</th><th>Description</th><th class="num">Debit</th>
+    <th class="num">Credit</th><th class="num">Balance</th></tr></thead>
 {% for t in doc.transactions %}
 <tr><td>{{ t.txn_date.isoformat() }}</td><td>{{ t.description }}</td>
     <td class="num">{{ money(t.debit) }}</td>
