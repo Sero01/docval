@@ -1,0 +1,23 @@
+<html><head><style>
+  body { font-family: Helvetica, sans-serif; font-size: 10pt; }
+  h1 { font-size: 14pt; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #444; padding: 4px 6px; text-align: left; }
+  th.num, td.num { text-align: right; }
+</style></head><body>
+<h1>{{ doc.bank_name }}</h1>
+<p>Account Number: {{ doc.account_number }}<br>
+Currency: {{ doc.currency }}<br>
+Statement Period: {{ doc.period_start.isoformat() }} to {{ doc.period_end.isoformat() }}</p>
+<p>Opening Balance: {{ money(doc.opening_balance) }}<br>
+Closing Balance: {{ money(doc.closing_balance) }}</p>
+<table>
+<tr><th>Date</th><th>Description</th><th class="num">Debit</th>
+    <th class="num">Credit</th><th class="num">Balance</th></tr>
+{% for t in doc.transactions %}
+<tr><td>{{ t.txn_date.isoformat() }}</td><td>{{ t.description }}</td>
+    <td class="num">{{ money(t.debit) }}</td>
+    <td class="num">{{ money(t.credit) }}</td>
+    <td class="num">{{ money(t.running_balance) }}</td></tr>
+{% endfor %}
+</table></body></html>
