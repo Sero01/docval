@@ -48,6 +48,20 @@ def test_render_pages_returns_jpeg_bytes(tmp_path):
     assert pages[0][:3] == b"\xff\xd8\xff"
 
 
+def test_render_pages_caps_pixel_size_of_huge_pages(tmp_path):
+    # Image-PDFs often map 1 px to 1 pt, so a 300-dpi scan page is ~3500 pt
+    # and naive dpi scaling produces ~67 MP images (observed HTTP 413).
+    import io
+
+    from PIL import Image
+
+    big = tmp_path / "big.pdf"
+    Image.new("L", (3500, 5000), 255).save(big, format="PDF")
+    pages = render_pages(big)
+    img = Image.open(io.BytesIO(pages[0]))
+    assert max(img.size) <= 2048
+
+
 def test_parse_vision_builds_statement_and_usage(tmp_path):
     stub = StubClient(PAYLOAD)
     doc, usage = parse_vision(_scan_pdf(tmp_path), client=stub)

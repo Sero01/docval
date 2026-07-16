@@ -43,12 +43,18 @@ class _WireStatement(BaseModel):
     transactions: list[_WireTxn]
 
 
+MAX_PAGE_PX = 2048  # image-PDF pages can be thousands of points tall; the
+# model downscales internally anyway, so bigger renders only bloat the payload
+
+
 def render_pages(pdf_path: Path, dpi: int = 200) -> list[bytes]:
     doc = pdfium.PdfDocument(str(pdf_path))
     try:
         pages = []
         for page in doc:
-            img = page.render(scale=dpi / 72).to_pil()
+            w_pt, h_pt = page.get_size()
+            scale = min(dpi / 72, MAX_PAGE_PX / max(w_pt, h_pt))
+            img = page.render(scale=scale).to_pil()
             buf = io.BytesIO()
             # JPEG: 200-dpi PNGs of multi-page scans exceed provider request
             # size limits (HTTP 413 observed on 6-page documents)
