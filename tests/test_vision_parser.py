@@ -8,7 +8,7 @@ from docval.parsers.vision import parse_vision, render_pages
 
 
 class StubClient:
-    """Mimics openai chat.completions.create, returns a canned statement."""
+    """Mimics a streaming openai chat.completions.create."""
 
     def __init__(self, payload: dict, finish_reason: str = "stop"):
         self._payload = payload
@@ -16,13 +16,25 @@ class StubClient:
         self.last_kwargs = None
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
+    def _content(self) -> str:
+        return json.dumps(self._payload)
+
     def _create(self, **kwargs):
         self.last_kwargs = kwargs
-        return SimpleNamespace(
-            choices=[SimpleNamespace(
-                message=SimpleNamespace(content=json.dumps(self._payload)),
-                finish_reason=self._finish_reason)],
-            usage=SimpleNamespace(prompt_tokens=1000, completion_tokens=500))
+        text = self._content()
+        mid = len(text) // 2
+
+        def chunks():
+            for piece in (text[:mid], text[mid:]):
+                yield SimpleNamespace(usage=None, choices=[SimpleNamespace(
+                    delta=SimpleNamespace(content=piece), finish_reason=None)])
+            yield SimpleNamespace(usage=None, choices=[SimpleNamespace(
+                delta=SimpleNamespace(content=None),
+                finish_reason=self._finish_reason)])
+            yield SimpleNamespace(choices=[], usage=SimpleNamespace(
+                prompt_tokens=1000, completion_tokens=500))
+
+        return chunks()
 
 
 PAYLOAD = {
@@ -77,6 +89,8 @@ def test_parse_vision_builds_statement_and_usage(tmp_path):
     # thinking eats the output budget and truncates long statements mid-JSON
     assert stub.last_kwargs["max_tokens"] >= 32768
     assert stub.last_kwargs["extra_body"]["reasoning"]["enabled"] is False
+    # non-streaming responses over ~100s get cut by intermediary proxies
+    assert stub.last_kwargs["stream"] is True
 
 
 def test_truncated_output_raises_named_error(tmp_path):
@@ -113,24 +127,68 @@ def test_printed_formats_normalized(tmp_path):
     assert doc.transactions[0].txn_date == date(2024, 1, 2)
 
 
+def test_misread_separator_amounts_repaired(tmp_path):
+    # Noisy scans make models misread grouping separators ("60,56,445.83"
+    # transcribed as "6,056.445.83"). All dots but the last are grouping.
+    from decimal import Decimal
+
+    payload = dict(PAYLOAD, transactions=[
+        {"txn_date": "2026-01-05", "description": "NEFT",
+         "debit": None, "credit": "6,056.445.83", "running_balance": None}])
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    assert doc.transactions[0].credit == Decimal("6056445.83")
+
+
 def test_flaky_invalid_json_retried_once(tmp_path):
     class FlakyStub(StubClient):
         def __init__(self, payload):
             super().__init__(payload)
             self.calls = 0
 
-        def _create(self, **kwargs):
+        def _content(self) -> str:
             self.calls += 1
-            resp = super()._create(**kwargs)
-            if self.calls == 1:  # provider drops the response mid-stream
-                resp.choices[0].message.content = '{\n  "bank_name": "Roy'
-            return resp
+            if self.calls == 1:  # provider drops the stream mid-generation
+                return '{\n  "bank_name": "Roy'
+            return super()._content()
 
     stub = FlakyStub(PAYLOAD)
     doc, usage = parse_vision(_scan_pdf(tmp_path), client=stub)
     assert stub.calls == 2
     assert doc.bank_name == "Meridian Bank"
     assert usage.input_tokens == 2000  # both attempts were billed
+
+
+def test_midstream_rate_limit_retried_with_backoff(tmp_path, monkeypatch):
+    # OpenRouter aborts long generations mid-stream with a 429 error event
+    # when the per-minute token cap is hit; back off and retry.
+    import time as time_mod
+
+    import httpx
+    import openai
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(time_mod, "sleep", lambda s: sleeps.append(s))
+
+    class RateLimitedStub(StubClient):
+        def __init__(self, payload):
+            super().__init__(payload)
+            self.calls = 0
+
+        def _create(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise openai.APIError(
+                    "JSON error injected into SSE stream",
+                    httpx.Request("POST", "https://openrouter.ai"),
+                    body={"code": 429,
+                          "metadata": {"error_type": "rate_limit_exceeded"}})
+            return super()._create(**kwargs)
+
+    stub = RateLimitedStub(PAYLOAD)
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=stub)
+    assert stub.calls == 2
+    assert doc.bank_name == "Meridian Bank"
+    assert sleeps and sleeps[0] >= 30  # rate limits need a real pause
 
 
 def test_zero_amounts_coerced_to_none(tmp_path):

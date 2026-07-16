@@ -9,6 +9,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+import openai
 import pypdfium2 as pdfium
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
@@ -50,9 +51,27 @@ MAX_PAGE_PX = 2048  # image-PDF pages can be thousands of points tall; the
 
 MAX_OUTPUT_TOKENS = 32768  # a ~160-txn statement is ~10k tokens of JSON
 
+_MAX_ATTEMPTS = 3
+
 
 class TruncatedOutputError(Exception):
     """Model hit the output-token limit; the JSON is incomplete."""
+
+
+def _rate_limited(e: Exception) -> bool:
+    if isinstance(e, openai.RateLimitError):
+        return True
+    body = getattr(e, "body", None)
+    return isinstance(body, dict) and body.get("code") == 429
+
+
+def _retryable(e: Exception) -> bool:
+    if isinstance(e, (ValidationError, TruncatedOutputError,
+                      openai.RateLimitError, openai.APIConnectionError)):
+        return True
+    # a bare APIError is the mid-stream injected kind; typed status errors
+    # (auth, bad request) are not worth retrying
+    return type(e) is openai.APIError
 
 
 def render_pages(pdf_path: Path, dpi: int = 200) -> list[bytes]:
@@ -83,6 +102,12 @@ def _clean_amount(amount: str | None) -> str | None:
     if amount is None:
         return None
     cleaned = _AMOUNT_JUNK.sub("", amount) or amount
+    if cleaned.count(".") > 1:
+        # misread grouping separators ("6,056.445.83"): every dot but the
+        # last is grouping; if the repair is numerically wrong, the
+        # balance-chain validator flags it downstream
+        whole, _, frac = cleaned.rpartition(".")
+        cleaned = whole.replace(".", "") + "." + frac
     try:
         # "0.00" for an empty cell means no debit/credit at all
         return None if Decimal(cleaned) == 0 else cleaned
@@ -127,29 +152,47 @@ def parse_vision(pdf_path: Path, client: OpenAI | None = None,
     started = time.monotonic()
     wire: _WireStatement | None = None
     tokens_in = tokens_out = 0  # every attempt is billed
-    for attempt in (0, 1):  # providers occasionally drop a response mid-stream
-        resp = client.chat.completions.create(
-            model=model,
-            temperature=0,  # extraction must be greedy, not sampled
-            max_tokens=MAX_OUTPUT_TOKENS,
-            # thinking tokens count against the output budget and truncate long
-            # statements mid-JSON; extraction needs transcription, not reasoning
-            extra_body={"reasoning": {"enabled": False}},
-            messages=[{"role": "user", "content": content}],
-            response_format={"type": "json_schema", "json_schema": {
-                "name": "bank_statement", "strict": True,
-                "schema": _WireStatement.model_json_schema()}})
-        tokens_in += resp.usage.prompt_tokens
-        tokens_out += resp.usage.completion_tokens
+    for attempt in range(_MAX_ATTEMPTS):
         try:
-            if resp.choices[0].finish_reason == "length":
+            stream = client.chat.completions.create(
+                model=model,
+                temperature=0,  # extraction must be greedy, not sampled
+                max_tokens=MAX_OUTPUT_TOKENS,
+                # thinking tokens count against the output budget and truncate
+                # long statements mid-JSON; extraction is transcription, not
+                # reasoning
+                extra_body={"reasoning": {"enabled": False}},
+                # long generations exceed proxy timeouts unless streamed
+                stream=True,
+                stream_options={"include_usage": True},
+                messages=[{"role": "user", "content": content}],
+                response_format={"type": "json_schema", "json_schema": {
+                    "name": "bank_statement", "strict": True,
+                    "schema": _WireStatement.model_json_schema()}})
+            parts: list[str] = []
+            finish_reason = None
+            for chunk in stream:
+                if chunk.usage is not None:
+                    tokens_in += chunk.usage.prompt_tokens
+                    tokens_out += chunk.usage.completion_tokens
+                if chunk.choices:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        parts.append(delta)
+                    if chunk.choices[0].finish_reason:
+                        finish_reason = chunk.choices[0].finish_reason
+            if finish_reason == "length":
                 raise TruncatedOutputError(
                     f"output hit max_tokens={MAX_OUTPUT_TOKENS}; JSON incomplete")
-            wire = _WireStatement.model_validate_json(resp.choices[0].message.content)
+            wire = _WireStatement.model_validate_json("".join(parts))
             break
-        except (ValidationError, TruncatedOutputError):
-            if attempt == 1:
+        except Exception as e:
+            if attempt == _MAX_ATTEMPTS - 1 or not _retryable(e):
                 raise
+            if _rate_limited(e):
+                # the provider aborts the stream mid-generation when the
+                # per-minute token cap is hit; wait for the window to reset
+                time.sleep(45 * (attempt + 1))
     latency = time.monotonic() - started
     doc = StatementDoc.model_validate(_normalize(wire))  # never trust wire JSON
     usage = UsageStats(
