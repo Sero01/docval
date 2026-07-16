@@ -1,0 +1,23 @@
+import random
+
+from datagen.generate import build_statement, render_pdf
+from docval.pipeline import extract
+from docval.validate import Severity
+
+
+def test_native_pdf_takes_native_route(tmp_path):
+    render_pdf(build_statement(random.Random(5)), tmp_path / "n.pdf")
+    result = extract(tmp_path / "n.pdf", allow_vision=False)
+    assert result.route == "native"
+    assert result.report.overall == Severity.PASS
+    assert result.error is None
+
+
+def test_vision_disabled_scanned_pdf_yields_error(tmp_path):
+    from datagen.scanify import make_scan_variant
+    render_pdf(build_statement(random.Random(5)), tmp_path / "n.pdf")
+    make_scan_variant(tmp_path / "n.pdf", tmp_path / "s.pdf")
+    result = extract(tmp_path / "s.pdf", allow_vision=False)
+    assert result.route == "error"
+    assert result.doc is None
+    assert "vision" in result.error
