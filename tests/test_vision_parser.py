@@ -40,10 +40,12 @@ def _scan_pdf(tmp_path):
     return scan
 
 
-def test_render_pages_returns_png_bytes(tmp_path):
+def test_render_pages_returns_jpeg_bytes(tmp_path):
+    # JPEG, not PNG: multi-page 200-dpi PNG scans exceed the provider's
+    # request size limit (observed HTTP 413 on 6-page AgamiAI documents)
     pages = render_pages(_scan_pdf(tmp_path))
     assert len(pages) >= 1
-    assert pages[0][:8] == b"\x89PNG\r\n\x1a\n"
+    assert pages[0][:3] == b"\xff\xd8\xff"
 
 
 def test_parse_vision_builds_statement_and_usage(tmp_path):
@@ -55,3 +57,19 @@ def test_parse_vision_builds_statement_and_usage(tmp_path):
     assert usage.cost_usd > 0
     assert stub.last_kwargs["model"] == "google/gemini-2.5-flash"
     assert stub.last_kwargs["response_format"]["type"] == "json_schema"
+    assert stub.last_kwargs["temperature"] == 0  # extraction must be greedy
+
+
+def test_zero_amounts_coerced_to_none(tmp_path):
+    # Models sometimes emit "0.00" for the empty amount column instead of
+    # null; a zero debit/credit is no debit/credit.
+    payload = dict(PAYLOAD, transactions=[
+        {"txn_date": "2026-01-05", "description": "ATM WDL",
+         "debit": "0.00", "credit": "500.00", "running_balance": "1500.00"},
+        {"txn_date": "2026-01-06", "description": "FAILED-INSUFFICIENT FUNDS",
+         "debit": "0.00", "credit": "0.00", "running_balance": "1500.00"},
+    ])
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    assert doc.transactions[0].debit is None
+    assert str(doc.transactions[0].credit) == "500.00"
+    assert doc.transactions[1].debit is None and doc.transactions[1].credit is None

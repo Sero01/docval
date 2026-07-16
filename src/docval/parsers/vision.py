@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import io
 import time
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import pypdfium2 as pdfium
@@ -49,31 +50,47 @@ def render_pages(pdf_path: Path, dpi: int = 200) -> list[bytes]:
         for page in doc:
             img = page.render(scale=dpi / 72).to_pil()
             buf = io.BytesIO()
-            img.save(buf, format="PNG")
+            # JPEG: 200-dpi PNGs of multi-page scans exceed provider request
+            # size limits (HTTP 413 observed on 6-page documents)
+            img.convert("RGB").save(buf, format="JPEG", quality=80)
             pages.append(buf.getvalue())
         return pages
     finally:
         doc.close()
 
 
+def _zero_to_none(amount: str | None) -> str | None:
+    # Models sometimes emit "0.00" for an empty amount cell; zero debit/credit
+    # means no debit/credit.
+    try:
+        return None if amount is not None and Decimal(amount) == 0 else amount
+    except InvalidOperation:
+        return amount  # let StatementDoc validation report the garbage
+
+
 def parse_vision(pdf_path: Path, client: OpenAI | None = None,
                  model: str = VISION_MODEL) -> tuple[StatementDoc, UsageStats]:
     client = client or get_client()
     content: list[dict] = [{"type": "text", "text": PROMPT}]
-    for png in render_pages(pdf_path):
-        b64 = base64.b64encode(png).decode()
+    for jpeg in render_pages(pdf_path):
+        b64 = base64.b64encode(jpeg).decode()
         content.append({"type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{b64}"}})
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
     started = time.monotonic()
     resp = client.chat.completions.create(
         model=model,
+        temperature=0,  # extraction must be greedy, not sampled
         messages=[{"role": "user", "content": content}],
         response_format={"type": "json_schema", "json_schema": {
             "name": "bank_statement", "strict": True,
             "schema": _WireStatement.model_json_schema()}})
     latency = time.monotonic() - started
     wire = _WireStatement.model_validate_json(resp.choices[0].message.content)
-    doc = StatementDoc.model_validate(wire.model_dump())  # re-validation: never trust wire JSON
+    payload = wire.model_dump()
+    for txn in payload["transactions"]:
+        txn["debit"] = _zero_to_none(txn["debit"])
+        txn["credit"] = _zero_to_none(txn["credit"])
+    doc = StatementDoc.model_validate(payload)  # re-validation: never trust wire JSON
     usage = UsageStats(
         input_tokens=resp.usage.prompt_tokens,
         output_tokens=resp.usage.completion_tokens,
