@@ -55,7 +55,7 @@ def test_parse_vision_builds_statement_and_usage(tmp_path):
     assert str(doc.opening_balance) == "1000.00"
     assert usage.input_tokens == 1000 and usage.output_tokens == 500
     assert usage.cost_usd > 0
-    assert stub.last_kwargs["model"] == "google/gemini-2.5-flash"
+    assert stub.last_kwargs["model"] == "google/gemini-2.5-flash-lite"
     assert stub.last_kwargs["response_format"]["type"] == "json_schema"
     assert stub.last_kwargs["temperature"] == 0  # extraction must be greedy
 
