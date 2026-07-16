@@ -28,9 +28,11 @@ def test_both_debit_and_credit_rejected():
         make_txn(credit=Decimal("1.00"))
 
 
-def test_neither_debit_nor_credit_rejected():
-    with pytest.raises(ValidationError):
-        make_txn(debit=None, credit=None)
+def test_zero_effect_row_allowed_with_zero_signed_amount():
+    # Real statements print amount-less informational rows (e.g. failed
+    # transactions); they must be representable and must not move the balance.
+    t = make_txn(debit=None, credit=None)
+    assert t.signed_amount == Decimal("0")
 
 
 def test_statement_parses_string_amounts_and_dates():

@@ -17,8 +17,9 @@ from docval.schema import StatementDoc, UsageStats
 PROMPT = (
     "Extract this bank statement completely and exactly. Return every transaction "
     "row. Dates as YYYY-MM-DD. Amounts as plain decimal strings without currency "
-    "symbols or thousands separators. Each transaction has exactly one of "
-    "debit/credit set; the other must be null. Copy descriptions verbatim."
+    "symbols or thousands separators. Each transaction has at most one of "
+    "debit/credit set; rows printed without any amount (e.g. failed or "
+    "informational lines) have both null. Copy descriptions verbatim."
 )
 
 

@@ -16,14 +16,20 @@ class Transaction(BaseModel):
     running_balance: Decimal | None = None
 
     @model_validator(mode="after")
-    def exactly_one_amount(self) -> Self:
-        if (self.debit is None) == (self.credit is None):
-            raise ValueError("exactly one of debit or credit must be set")
+    def at_most_one_amount(self) -> Self:
+        # Both None is a zero-effect informational row (e.g. a printed
+        # failed-transaction line); both set is contradictory.
+        if self.debit is not None and self.credit is not None:
+            raise ValueError("at most one of debit or credit may be set")
         return self
 
     @property
     def signed_amount(self) -> Decimal:
-        return self.credit if self.credit is not None else -self.debit
+        if self.credit is not None:
+            return self.credit
+        if self.debit is not None:
+            return -self.debit
+        return Decimal("0")
 
 
 class UsageStats(BaseModel):
