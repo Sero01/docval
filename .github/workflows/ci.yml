@@ -1,0 +1,15 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0
+      - run: uv sync --dev
+      - run: uv run pytest -v
+      - name: eval regression gate (offline, native path)
+        run: |
+          uv run python -m eval.run_eval --manifest tests/fixtures/ci_manifest.jsonl --no-vision --out /tmp/ci_eval
+          uv run python -m eval.compare /tmp/ci_eval/*.json eval/baseline_ci.json
