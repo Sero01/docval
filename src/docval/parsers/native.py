@@ -38,8 +38,12 @@ def parse_native(pdf_path: Path) -> StatementDoc:
         raise UnsupportedLayoutError(f"header fields not found: {missing}")
 
     transactions = []
+    headers: list[str] | None = None
     for row in rows:
-        if not row or row[0] in (None, "", "Date"):
+        if not row or row[0] in (None, ""):
+            continue
+        if row[0] == "Date":
+            headers = [c.strip() for c in row]
             continue
         txn_date, description, debit, credit, balance = row
         transactions.append(Transaction(
@@ -47,7 +51,9 @@ def parse_native(pdf_path: Path) -> StatementDoc:
             description=description.strip(),
             debit=_dec(debit) if debit else None,
             credit=_dec(credit) if credit else None,
-            running_balance=_dec(balance) if balance else None))
+            running_balance=_dec(balance) if balance else None,
+            original=dict(zip(headers, (c or "" for c in row)))
+            if headers else None))
 
     return StatementDoc(
         bank_name=text.splitlines()[0].strip(),

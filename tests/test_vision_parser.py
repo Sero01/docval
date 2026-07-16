@@ -119,6 +119,10 @@ def test_printed_formats_normalized(tmp_path):
     from decimal import Decimal
 
     doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    # raw printed values survive normalization as extraction provenance
+    assert doc.transactions[0].original == {
+        "Date": "02-01-2024", "Description": "NEFT", "Debit": "",
+        "Credit": "₹1,544.32", "Balance": "7,80,770.82"}
     assert doc.period_start == date(2024, 1, 1)
     assert doc.period_end == date(2024, 3, 31)
     assert doc.opening_balance == Decimal("779226.50")

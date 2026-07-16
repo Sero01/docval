@@ -31,14 +31,25 @@ API_URL = "https://api.bankstatemently.com/v1/benchmark/evaluate"
 def to_submission(doc: StatementDoc, pdf: Path) -> dict:
     txns = []
     for t in doc.transactions:
-        amount = t.debit if t.debit is not None else t.credit
-        txns.append({
+        row: dict = {
             "date": t.txn_date.isoformat(),
             "description": t.description,
-            "amount": float(amount),
-            "direction": "debit" if t.debit is not None else "credit",
-            "balance": float(t.running_balance) if t.running_balance is not None else None,
-        })
+            # zero-effect informational rows have neither debit nor credit
+            "amount": float(abs(t.signed_amount)),
+            "originalData": t.original or {
+                "Date": t.txn_date.isoformat(),
+                "Description": t.description,
+                "Debit": str(t.debit) if t.debit is not None else "",
+                "Credit": str(t.credit) if t.credit is not None else "",
+                "Balance": (str(t.running_balance)
+                            if t.running_balance is not None else ""),
+            },
+        }
+        if t.debit is not None or t.credit is not None:
+            row["direction"] = "debit" if t.debit is not None else "credit"
+        if t.running_balance is not None:
+            row["balance"] = float(t.running_balance)
+        txns.append(row)
     return {"contentHash": hashlib.sha256(pdf.read_bytes()).hexdigest(),
             "transactions": txns}
 

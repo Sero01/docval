@@ -36,7 +36,8 @@ def test_multipage_statement_roundtrips_natively(tmp_path):
     with pdfplumber.open(pdf) as p:
         assert len(p.pages) >= 2
     from docval.parsers.native import parse_native
-    assert parse_native(pdf) == gold
+    strip = {"transactions": {"__all__": {"original"}}}
+    assert parse_native(pdf).model_dump(exclude=strip) == gold.model_dump(exclude=strip)
 
 
 def test_descriptions_are_varied():

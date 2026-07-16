@@ -132,6 +132,10 @@ def _normalize(wire: _WireStatement) -> dict:
     for key in ("period_start", "period_end"):
         payload[key] = _clean_date(payload[key])
     for txn in payload["transactions"]:
+        txn["original"] = {  # as-received values, before any cleaning
+            "Date": txn["txn_date"], "Description": txn["description"],
+            "Debit": txn["debit"] or "", "Credit": txn["credit"] or "",
+            "Balance": txn["running_balance"] or ""}
         txn["txn_date"] = _clean_date(txn["txn_date"])
         txn["debit"] = _clean_amount(txn["debit"])
         txn["credit"] = _clean_amount(txn["credit"])

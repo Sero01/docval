@@ -14,6 +14,9 @@ class Transaction(BaseModel):
     debit: Decimal | None = None
     credit: Decimal | None = None
     running_balance: Decimal | None = None
+    # raw cell values as printed in the PDF, keyed by column label —
+    # extraction provenance required by benchmark scoring (parsedScore)
+    original: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def at_most_one_amount(self) -> Self:
