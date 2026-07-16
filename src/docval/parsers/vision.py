@@ -193,6 +193,11 @@ def parse_vision(pdf_path: Path, client: OpenAI | None = None,
                 # the provider aborts the stream mid-generation when the
                 # per-minute token cap is hit; wait for the window to reset
                 time.sleep(45 * (attempt + 1))
+            elif isinstance(e, openai.APIError):
+                # other provider aborts are bursty: instant retries land in
+                # the same outage window (observed 3/3 back-to-back failures,
+                # then success minutes later)
+                time.sleep(5 * (attempt + 1))
     latency = time.monotonic() - started
     doc = StatementDoc.model_validate(_normalize(wire))  # never trust wire JSON
     usage = UsageStats(

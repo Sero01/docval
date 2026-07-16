@@ -191,6 +191,40 @@ def test_midstream_rate_limit_retried_with_backoff(tmp_path, monkeypatch):
     assert sleeps and sleeps[0] >= 30  # rate limits need a real pause
 
 
+def test_midstream_provider_error_retried_with_short_backoff(tmp_path, monkeypatch):
+    # Provider hiccups abort the stream with a bare (non-429) APIError and
+    # are bursty: three instant retries all land in the same outage window
+    # (observed live — 3/3 back-to-back failures, then success minutes
+    # later). A short pause between attempts must separate them.
+    import time as time_mod
+
+    import httpx
+    import openai
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(time_mod, "sleep", lambda s: sleeps.append(s))
+
+    class MidstreamErrorStub(StubClient):
+        def __init__(self, payload):
+            super().__init__(payload)
+            self.calls = 0
+
+        def _create(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise openai.APIError(
+                    "JSON error injected into SSE stream",
+                    httpx.Request("POST", "https://openrouter.ai"),
+                    body=None)
+            return super()._create(**kwargs)
+
+    stub = MidstreamErrorStub(PAYLOAD)
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=stub)
+    assert stub.calls == 2
+    assert doc.bank_name == "Meridian Bank"
+    assert sleeps and 0 < sleeps[0] < 30  # pause, but far less than a 429
+
+
 def test_zero_amounts_coerced_to_none(tmp_path):
     # Models sometimes emit "0.00" for the empty amount column instead of
     # null; a zero debit/credit is no debit/credit.
