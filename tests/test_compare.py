@@ -1,4 +1,3 @@
-import json
 
 from eval.compare import regressions
 

@@ -1,7 +1,6 @@
 """Gradio demo: bundled samples (free) + rate-limited live upload."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import gradio as gr
