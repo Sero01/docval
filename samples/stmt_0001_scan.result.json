@@ -1,0 +1,8 @@
+{
+  "source": "samples/stmt_0001_scan.pdf",
+  "route": "error",
+  "doc": null,
+  "report": null,
+  "usage": null,
+  "error": "scanned/unknown layout and vision path disabled"
+}

@@ -1,0 +1,97 @@
+{
+  "source": "samples/stmt_0000.pdf",
+  "route": "native",
+  "doc": {
+    "bank_name": "Cauvery National Bank",
+    "account_number": "481597082643",
+    "currency": "INR",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-30",
+    "opening_balance": "430112.06",
+    "closing_balance": "287518.91",
+    "transactions": [
+      {
+        "txn_date": "2026-01-03",
+        "description": "CHEQUE DEPOSIT 004512",
+        "debit": "20544.01",
+        "credit": null,
+        "running_balance": "409568.05"
+      },
+      {
+        "txn_date": "2026-01-03",
+        "description": "POS/GROCERY MART",
+        "debit": "45749.66",
+        "credit": null,
+        "running_balance": "363818.39"
+      },
+      {
+        "txn_date": "2026-01-03",
+        "description": "NEFT/SALARY/ACME LTD",
+        "debit": "2500.57",
+        "credit": null,
+        "running_balance": "361317.82"
+      },
+      {
+        "txn_date": "2026-01-03",
+        "description": "CHEQUE DEPOSIT 004512",
+        "debit": "47081.64",
+        "credit": null,
+        "running_balance": "314236.18"
+      },
+      {
+        "txn_date": "2026-01-06",
+        "description": "ATM WDL CONNAUGHT PL",
+        "debit": "18492.89",
+        "credit": null,
+        "running_balance": "295743.29"
+      },
+      {
+        "txn_date": "2026-01-06",
+        "description": "ATM WDL CONNAUGHT PL",
+        "debit": null,
+        "credit": "13394.19",
+        "running_balance": "309137.48"
+      },
+      {
+        "txn_date": "2026-01-08",
+        "description": "SERVICE CHARGE",
+        "debit": "13043.56",
+        "credit": null,
+        "running_balance": "296093.92"
+      },
+      {
+        "txn_date": "2026-01-10",
+        "description": "UPI/CRED/PAYMENT",
+        "debit": "8575.01",
+        "credit": null,
+        "running_balance": "287518.91"
+      }
+    ]
+  },
+  "report": {
+    "findings": [
+      {
+        "check": "balance_continuity",
+        "severity": "pass",
+        "message": "opening + transactions == closing"
+      },
+      {
+        "check": "running_balance",
+        "severity": "pass",
+        "message": "running balance chain consistent"
+      },
+      {
+        "check": "date_in_period",
+        "severity": "pass",
+        "message": "all transaction dates within period"
+      },
+      {
+        "check": "date_ordering",
+        "severity": "pass",
+        "message": "dates ascending"
+      }
+    ]
+  },
+  "usage": null,
+  "error": null
+}
