@@ -49,8 +49,9 @@ def extract(pdf_path: Path, client=None,
             return ExtractionResult(source=source, route="error",
                                     error=f"model API error (status {e.status_code})")
         except Exception as e:
+            detail = str(e).replace("\n", " ")[:300]
             return ExtractionResult(source=source, route="error",
-                                    error=f"extraction failed: {type(e).__name__}")
+                                    error=f"extraction failed: {type(e).__name__}: {detail}")
 
     return ExtractionResult(source=source, route=route, doc=doc, usage=usage,
                             report=validate_statement(doc))
