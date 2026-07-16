@@ -125,8 +125,15 @@ def _clean_date(raw: str) -> str:
     return raw  # let StatementDoc validation report the garbage
 
 
+_CURRENCY_SYMBOLS = {"$": "USD", "₹": "INR", "RS": "INR", "RS.": "INR",
+                     "€": "EUR", "£": "GBP", "¥": "JPY"}
+
+
 def _normalize(wire: _WireStatement) -> dict:
     payload = wire.model_dump()
+    printed = payload["currency"].strip()
+    payload["currency"] = _CURRENCY_SYMBOLS.get(printed.upper(),
+                                                printed.upper())
     for key in ("opening_balance", "closing_balance"):
         payload[key] = _AMOUNT_JUNK.sub("", payload[key]) or payload[key]
     for key in ("period_start", "period_end"):

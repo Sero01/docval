@@ -131,6 +131,16 @@ def test_printed_formats_normalized(tmp_path):
     assert doc.transactions[0].txn_date == date(2024, 1, 2)
 
 
+def test_currency_symbols_mapped_to_iso(tmp_path):
+    # Models copy the printed currency marker ("$", "₹", "Rs.") but the
+    # schema wants an ISO 4217 code; seen live on Bankstatemently bsb-002.
+    for printed, iso in [("$", "USD"), ("₹", "INR"), ("Rs.", "INR"),
+                         ("€", "EUR"), ("£", "GBP"), ("usd", "USD")]:
+        payload = dict(PAYLOAD, currency=printed)
+        doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+        assert doc.currency == iso, printed
+
+
 def test_misread_separator_amounts_repaired(tmp_path):
     # Noisy scans make models misread grouping separators ("60,56,445.83"
     # transcribed as "6,056.445.83"). All dots but the last are grouping.
