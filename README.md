@@ -1,8 +1,9 @@
 # DocVal
 
 Bank-statement extraction + validation pipeline. Extracts statements to
-structured JSON (native text-layer parsing when possible, Gemini 2.5 Flash
-vision via OpenRouter for scans), then **validates the arithmetic** — balance
+structured JSON (native text-layer parsing when possible, Gemini 2.5
+Flash-Lite vision via OpenRouter for scans), then **validates the
+arithmetic** — balance
 continuity is the star check: does opening balance + every transaction really
 equal the closing balance?
 
@@ -12,17 +13,26 @@ equal the closing balance?
 
 ## Results
 
-**Held-out set (pending):** numbers will land here from
-`eval/baseline_heldout.json` once the held-out baseline is run.
+**Held-out set** (100 docs: 58 real AgamiAI statements + 42 synthetic,
+gemini-2.5-flash-lite; full per-doc results in `eval/baseline_heldout.json`):
 
 | Metric | Held-out |
 |---|---|
-| Transaction F1 | _TBD_ |
-| Header field accuracy | _TBD_ |
-| Validation pass rate | _TBD_ |
-| Error rate | _TBD_ |
-| Mean cost / doc | _TBD_ |
-| Mean latency / doc | _TBD_ |
+| Transaction F1 | 0.51 |
+| Header field accuracy | 0.89 |
+| Validation pass rate | 0.26 |
+| Error rate | 13% |
+| Mean cost / doc | $0.005 |
+| Mean latency / doc | 68.5 s |
+
+The aggregate hides the real finding: synthetic docs score F1 ≈ 0.92 while
+real AgamiAI statements score ≈ 0.12 — flash-lite garbles dense real
+statements (row shifts across columns, debit/credit swaps, digit misreads).
+The 13% errors are dense multi-page scans that exceed the 32k output-token
+cap or hit persistent provider stream failures. That gap *is* the baseline
+result: cheap vision models look great on clean synthetic pages and fall
+apart on real scans — which the validation layer flags (pass rate 0.26)
+rather than silently accepting.
 
 **Bankstatemently Open Benchmark (pending):** third-party score via their
 evaluation API — `scripts/run_bankstatemently.py --submit`.
@@ -43,7 +53,7 @@ That's the point of validating extractions instead of trusting them.
                      ▼           ▼
             ┌───────────────┐  ┌────────────────────────┐
             │ parsers/      │  │ parsers/vision.py      │
-            │ native.py     │  │ Gemini 2.5 Flash       │
+            │ native.py     │  │ Gemini 2.5 Flash-Lite  │
             │ (pdfplumber)  │  │ via OpenRouter         │
             └───────┬───────┘  └───────────┬────────────┘
                     └─────────┬────────────┘
@@ -60,7 +70,7 @@ That's the point of validating extractions instead of trusting them.
 
 ```bash
 uv sync --dev
-uv run pytest                                   # 32 tests, offline
+uv run pytest                                   # 51 tests, offline
 
 # generate synthetic statements (PDF + ground-truth JSON)
 uv run python -m datagen.generate --count 10 --out data/generated --seed 42 --scan
@@ -83,8 +93,10 @@ and a rate-limited live upload (max 5 pages / 10 MB).
 
 ## Cost
 
-Scanned statements run ~$0.005–0.02 each with Gemini 2.5 Flash
-($0.30/M input, $2.50/M output tokens); native-text PDFs cost nothing.
+Scanned statements run well under a cent each with the default
+Gemini 2.5 Flash-Lite ($0.10/M input, $0.40/M output tokens);
+native-text PDFs cost nothing. Set `DOCVAL_VISION_MODEL` to switch
+models (pricing table in `src/docval/config.py`).
 
 ## Eval
 
