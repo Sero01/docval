@@ -9,6 +9,9 @@ WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN useradd --create-home appuser
+USER appuser
+
 ENV GRADIO_SERVER_NAME=0.0.0.0
 # Render provides PORT; default to gradio's 7860 for local runs
 CMD ["sh", "-c", "GRADIO_SERVER_PORT=${PORT:-7860} python app.py"]

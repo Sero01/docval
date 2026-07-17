@@ -14,9 +14,17 @@ SAMPLES = sorted(Path("samples").glob("*.pdf"))
 BADGE = {"pass": "✅", "warn": "⚠️", "fail": "❌"}
 
 
+def public_error(error: str | None) -> str:
+    # The catch-all pipeline error embeds exception type + message for the
+    # eval harness; don't leak that to anonymous visitors.
+    if error is None or error.startswith("extraction failed:"):
+        return "extraction failed — the document could not be processed"
+    return error
+
+
 def render(result: ExtractionResult):
     if result.doc is None:
-        return [], f"❌ {result.error}", "route: error"
+        return [], f"❌ {public_error(result.error)}", "route: error"
     rows = [[t.txn_date.isoformat(), t.description,
              str(t.debit or ""), str(t.credit or ""), str(t.running_balance or "")]
             for t in result.doc.transactions]
@@ -41,6 +49,9 @@ def run_upload(file):
     path = Path(file)
     if path.stat().st_size > MAX_BYTES:
         return [], "❌ File too large (max 10 MB).", ""
+    with path.open("rb") as f:
+        if f.read(5) != b"%PDF-":
+            return [], "❌ Not a PDF file.", ""
     import pypdfium2 as pdfium
     doc = pdfium.PdfDocument(str(path))
     n_pages = len(doc)
