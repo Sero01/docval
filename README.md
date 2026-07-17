@@ -7,9 +7,7 @@ arithmetic** — balance
 continuity is the star check: does opening balance + every transaction really
 equal the closing balance?
 
-<!-- CI badge: uncomment after first push
-![ci](https://github.com/<user>/docval/actions/workflows/ci.yml/badge.svg)
--->
+![ci](https://github.com/Sero01/docval/actions/workflows/ci.yml/badge.svg)
 
 ## Results
 
