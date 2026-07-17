@@ -6,3 +6,4 @@ data/*
 !data/manifest_heldout.jsonl
 eval/results/
 .env
+*.pid
