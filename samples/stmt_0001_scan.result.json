@@ -1,8 +1,214 @@
 {
   "source": "samples/stmt_0001_scan.pdf",
-  "route": "error",
-  "doc": null,
-  "report": null,
-  "usage": null,
-  "error": "scanned/unknown layout and vision path disabled"
+  "route": "vision",
+  "doc": {
+    "bank_name": "Cauvery National Bank",
+    "account_number": "238155432673",
+    "currency": "INR",
+    "period_start": "2026-03-01",
+    "period_end": "2026-03-30",
+    "opening_balance": "26871.70",
+    "closing_balance": "38730.55",
+    "transactions": [
+      {
+        "txn_date": "2026-03-04",
+        "description": "SERVICE CHARGE",
+        "debit": null,
+        "credit": "31028.54",
+        "running_balance": "57900.24",
+        "original": {
+          "Date": "2026-03-04",
+          "Description": "SERVICE CHARGE",
+          "Debit": "",
+          "Credit": "31028.54",
+          "Balance": "57900.24"
+        }
+      },
+      {
+        "txn_date": "2026-03-04",
+        "description": "IMPS/TRANSFER/9821",
+        "debit": null,
+        "credit": "38017.26",
+        "running_balance": "95917.50",
+        "original": {
+          "Date": "2026-03-04",
+          "Description": "IMPS/TRANSFER/9821",
+          "Debit": "",
+          "Credit": "38017.26",
+          "Balance": "95917.50"
+        }
+      },
+      {
+        "txn_date": "2026-03-04",
+        "description": "ATM WDL CONNAUGHT PL",
+        "debit": "43125.03",
+        "credit": null,
+        "running_balance": "52792.47",
+        "original": {
+          "Date": "2026-03-04",
+          "Description": "ATM WDL CONNAUGHT PL",
+          "Debit": "43125.03",
+          "Credit": "",
+          "Balance": "52792.47"
+        }
+      },
+      {
+        "txn_date": "2026-03-07",
+        "description": "SERVICE CHARGE",
+        "debit": "33046.69",
+        "credit": null,
+        "running_balance": "19745.78",
+        "original": {
+          "Date": "2026-03-07",
+          "Description": "SERVICE CHARGE",
+          "Debit": "33046.69",
+          "Credit": "",
+          "Balance": "19745.78"
+        }
+      },
+      {
+        "txn_date": "2026-03-07",
+        "description": "UPI/CRED/PAYMENT",
+        "debit": "10449.16",
+        "credit": null,
+        "running_balance": "9296.62",
+        "original": {
+          "Date": "2026-03-07",
+          "Description": "UPI/CRED/PAYMENT",
+          "Debit": "10449.16",
+          "Credit": "",
+          "Balance": "9296.62"
+        }
+      },
+      {
+        "txn_date": "2026-03-08",
+        "description": "NEFT/SALARY/ACME LTD",
+        "debit": null,
+        "credit": "42986.77",
+        "running_balance": "52283.39",
+        "original": {
+          "Date": "2026-03-08",
+          "Description": "NEFT/SALARY/ACME LTD",
+          "Debit": "",
+          "Credit": "42986.77",
+          "Balance": "52283.39"
+        }
+      },
+      {
+        "txn_date": "2026-03-11",
+        "description": "NEFT/SALARY/ACME LTD",
+        "debit": "42504.06",
+        "credit": null,
+        "running_balance": "9779.33",
+        "original": {
+          "Date": "2026-03-11",
+          "Description": "NEFT/SALARY/ACME LTD",
+          "Debit": "42504.06",
+          "Credit": "",
+          "Balance": "9779.33"
+        }
+      },
+      {
+        "txn_date": "2026-03-14",
+        "description": "UPI/CRED/PAYMENT",
+        "debit": "5330.41",
+        "credit": null,
+        "running_balance": "4448.92",
+        "original": {
+          "Date": "2026-03-14",
+          "Description": "UPI/CRED/PAYMENT",
+          "Debit": "5330.41",
+          "Credit": "",
+          "Balance": "4448.92"
+        }
+      },
+      {
+        "txn_date": "2026-03-15",
+        "description": "ATM WDL CONNAUGHT PL",
+        "debit": null,
+        "credit": "5152.35",
+        "running_balance": "9601.27",
+        "original": {
+          "Date": "2026-03-15",
+          "Description": "ATM WDL CONNAUGHT PL",
+          "Debit": "",
+          "Credit": "5152.35",
+          "Balance": "9601.27"
+        }
+      },
+      {
+        "txn_date": "2026-03-17",
+        "description": "UPI/CRED/PAYMENT",
+        "debit": "6463.99",
+        "credit": null,
+        "running_balance": "3137.28",
+        "original": {
+          "Date": "2026-03-17",
+          "Description": "UPI/CRED/PAYMENT",
+          "Debit": "6463.99",
+          "Credit": "",
+          "Balance": "3137.28"
+        }
+      },
+      {
+        "txn_date": "2026-03-17",
+        "description": "POS/GROCERY MART",
+        "debit": null,
+        "credit": "7894.57",
+        "running_balance": "11031.85",
+        "original": {
+          "Date": "2026-03-17",
+          "Description": "POS/GROCERY MART",
+          "Debit": "",
+          "Credit": "7894.57",
+          "Balance": "11031.85"
+        }
+      },
+      {
+        "txn_date": "2026-03-19",
+        "description": "CHEQUE DEPOSIT 004512",
+        "debit": null,
+        "credit": "27698.70",
+        "running_balance": "38730.55",
+        "original": {
+          "Date": "2026-03-19",
+          "Description": "CHEQUE DEPOSIT 004512",
+          "Debit": "",
+          "Credit": "27698.70",
+          "Balance": "38730.55"
+        }
+      }
+    ]
+  },
+  "report": {
+    "findings": [
+      {
+        "check": "balance_continuity",
+        "severity": "pass",
+        "message": "opening + transactions == closing"
+      },
+      {
+        "check": "running_balance",
+        "severity": "pass",
+        "message": "running balance chain consistent"
+      },
+      {
+        "check": "date_in_period",
+        "severity": "pass",
+        "message": "all transaction dates within period"
+      },
+      {
+        "check": "date_ordering",
+        "severity": "pass",
+        "message": "dates ascending"
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": 1876,
+    "output_tokens": 1063,
+    "cost_usd": 0.0006128,
+    "latency_s": 8.273383871011902
+  },
+  "error": null
 }
