@@ -53,9 +53,12 @@ def run_upload(file):
         if f.read(5) != b"%PDF-":
             return [], "❌ Not a PDF file.", ""
     import pypdfium2 as pdfium
-    doc = pdfium.PdfDocument(str(path))
-    n_pages = len(doc)
-    doc.close()
+    try:
+        doc = pdfium.PdfDocument(str(path))
+        n_pages = len(doc)
+        doc.close()
+    except pdfium.PdfiumError:
+        return [], "❌ Not a valid PDF file.", ""
     if n_pages > MAX_PAGES:
         return [], f"❌ Too many pages (max {MAX_PAGES}).", ""
     return render(extract(path))

@@ -25,3 +25,10 @@ def test_upload_rejects_non_pdf(tmp_path: Path):
     fake.write_bytes(b"hello, definitely not a pdf")
     _, findings, _ = run_upload(str(fake))
     assert "Not a PDF" in findings
+
+
+def test_upload_rejects_corrupt_pdf(tmp_path: Path):
+    corrupt = tmp_path / "corrupt.pdf"
+    corrupt.write_bytes(b"%PDF-1.7 followed by garbage that pdfium cannot parse")
+    _, findings, _ = run_upload(str(corrupt))
+    assert "Not a valid PDF" in findings
