@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: docval
+    runtime: docker
+    plan: free
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
