@@ -86,8 +86,10 @@ uv run python app.py
 
 ## Demo
 
-HF Space: _pending deploy_ — two tabs: precomputed samples (zero API cost)
-and a rate-limited live upload (max 5 pages / 10 MB).
+Live demo: **[docval-yy4s.onrender.com](https://docval-yy4s.onrender.com)** —
+two tabs: precomputed samples (zero API cost) and a rate-limited live upload
+(max 5 pages / 10 MB). Hosted on Render's free tier (HF paywalled Gradio
+Spaces), so the first visit after an idle spell takes ~1 min to wake.
 
 ## Cost
 
