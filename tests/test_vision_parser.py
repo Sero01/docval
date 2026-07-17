@@ -239,6 +239,116 @@ def test_midstream_provider_error_retried_with_short_backoff(tmp_path, monkeypat
     assert sleeps and 0 < sleeps[0] < 30  # pause, but far less than a 429
 
 
+class ScriptedStub(StubClient):
+    """Plays back a scripted sequence of (payload_or_text, finish_reason)."""
+
+    def __init__(self, script):
+        super().__init__(payload=None)
+        self._script = list(script)
+        self.calls = []  # kwargs of every request, in order
+
+    def _create(self, **kwargs):
+        self.calls.append(kwargs)
+        payload, finish = self._script.pop(0)
+        self._payload = payload
+        self._finish_reason = finish
+        return super()._create(**kwargs)
+
+    def _content(self) -> str:
+        if isinstance(self._payload, str):
+            return self._payload
+        return json.dumps(self._payload)
+
+
+def _two_page_pdf(tmp_path):
+    from PIL import Image
+
+    pdf = tmp_path / "two.pdf"
+    first = Image.new("L", (800, 1000), 255)
+    first.save(pdf, format="PDF", save_all=True,
+               append_images=[Image.new("L", (800, 1000), 250)])
+    return pdf
+
+
+TXN2 = {"txn_date": "2026-01-06", "description": "NEFT IN",
+        "debit": None, "credit": "50.00", "running_balance": "950.00"}
+
+
+def test_truncated_single_shot_falls_back_to_paged(tmp_path):
+    # Dense multi-page statements overflow the output budget in one shot
+    # (10 of 13 held-out failures); the parser must re-extract per page.
+    stub = ScriptedStub([
+        (PAYLOAD, "length"),                 # single-shot: truncated
+        (dict(PAYLOAD, closing_balance="950.00"), "stop"),  # header + page-1 rows
+        ({"transactions": [TXN2]}, "stop"),  # page-2 rows
+    ])
+    doc, usage = parse_vision(_two_page_pdf(tmp_path), client=stub)
+    assert len(stub.calls) == 3
+    assert [t.description for t in doc.transactions] == ["ATM WDL", "NEFT IN"]
+    assert str(doc.closing_balance) == "950.00"
+    # header call sees first AND last page (closing balance is usually
+    # printed at the end); continuation call sees exactly one page
+    n_images = [sum(1 for part in c["messages"][0]["content"]
+                    if part["type"] == "image_url") for c in stub.calls]
+    assert n_images == [2, 2, 1]
+    assert usage.input_tokens == 3000  # every attempt is billed
+
+
+def test_truncation_is_not_retried_on_identical_request(tmp_path):
+    # temperature=0 makes truncation deterministic: retrying the identical
+    # request burns tokens to fail identically. One shot, then fallback.
+    import pytest
+
+    from docval.parsers.vision import TruncatedOutputError
+
+    stub = ScriptedStub([(PAYLOAD, "length"), (PAYLOAD, "length")])
+    with pytest.raises(TruncatedOutputError):
+        parse_vision(_scan_pdf(tmp_path), client=stub)  # single page
+    assert len(stub.calls) == 2  # single-shot + paged header, no blind retries
+
+
+def test_provider_aborts_fall_back_to_paged(tmp_path, monkeypatch):
+    # Mid-stream SSE aborts correlate with long generations; after retries
+    # are exhausted the paged path (much shorter streams) is the way out.
+    import time as time_mod
+
+    import httpx
+    import openai
+
+    monkeypatch.setattr(time_mod, "sleep", lambda s: None)
+
+    class AbortingStub(ScriptedStub):
+        def _create(self, **kwargs):
+            if len(self.calls) < 3:  # all single-shot attempts abort
+                self.calls.append(kwargs)
+                raise openai.APIError(
+                    "JSON error injected into SSE stream",
+                    httpx.Request("POST", "https://openrouter.ai"), body=None)
+            return super()._create(**kwargs)
+
+    stub = AbortingStub([
+        (dict(PAYLOAD, closing_balance="950.00"), "stop"),
+        ({"transactions": [TXN2]}, "stop"),
+    ])
+    doc, _ = parse_vision(_two_page_pdf(tmp_path), client=stub)
+    assert len(stub.calls) == 5  # 3 aborted single-shots + header + page 2
+    assert len(doc.transactions) == 2
+
+
+def test_schema_garbage_falls_back_to_paged(tmp_path):
+    # Persistent schema garbage (not a one-off stream drop) must also take
+    # the paged path instead of failing the document.
+    garbage = '{"unexpected": "shape"}'
+    stub = ScriptedStub([
+        (garbage, "stop"), (garbage, "stop"), (garbage, "stop"),  # retries exhausted
+        (dict(PAYLOAD, closing_balance="950.00"), "stop"),
+        ({"transactions": [TXN2]}, "stop"),
+    ])
+    doc, _ = parse_vision(_two_page_pdf(tmp_path), client=stub)
+    assert len(stub.calls) == 5
+    assert len(doc.transactions) == 2
+
+
 def test_zero_amounts_coerced_to_none(tmp_path):
     # Models sometimes emit "0.00" for the empty amount column instead of
     # null; a zero debit/credit is no debit/credit.

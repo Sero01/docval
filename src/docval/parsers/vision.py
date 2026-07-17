@@ -18,12 +18,32 @@ from docval.config import (PRICE_IN_PER_MTOK, PRICE_OUT_PER_MTOK, VISION_MODEL,
                            get_client)
 from docval.schema import StatementDoc, UsageStats
 
-PROMPT = (
-    "Extract this bank statement completely and exactly. Return every transaction "
-    "row. Dates as YYYY-MM-DD. Amounts as plain decimal strings without currency "
+_FORMAT_RULES = (
+    "Dates as YYYY-MM-DD. Amounts as plain decimal strings without currency "
     "symbols or thousands separators. Each transaction has at most one of "
     "debit/credit set; rows printed without any amount (e.g. failed or "
     "informational lines) have both null. Copy descriptions verbatim."
+)
+
+PROMPT = (
+    "Extract this bank statement completely and exactly. Return every transaction "
+    "row. " + _FORMAT_RULES
+)
+
+PAGED_HEADER_PROMPT = (
+    "This bank statement is processed page by page. You are given its FIRST "
+    "page and, if the statement has more than one page, its LAST page. "
+    "Extract the statement-level fields (bank name, account number, currency, "
+    "period, opening balance; the closing balance is often printed near the "
+    "end of the last page). Then return ONLY the transaction rows printed on "
+    "the FIRST page image, completely and exactly, in print order. "
+    + _FORMAT_RULES
+)
+
+PAGED_TXNS_PROMPT = (
+    "This image is one page of a longer bank statement. Return every "
+    "transaction row printed on THIS page, completely and exactly, in print "
+    "order. Do not invent rows from other pages. " + _FORMAT_RULES
 )
 
 
@@ -43,6 +63,10 @@ class _WireStatement(BaseModel):
     period_end: str
     opening_balance: str
     closing_balance: str
+    transactions: list[_WireTxn]
+
+
+class _WirePageTxns(BaseModel):
     transactions: list[_WireTxn]
 
 
@@ -152,52 +176,60 @@ def _normalize(wire: _WireStatement) -> dict:
     return payload
 
 
-def parse_vision(pdf_path: Path, client: OpenAI | None = None,
-                 model: str = VISION_MODEL) -> tuple[StatementDoc, UsageStats]:
-    client = client or get_client()
-    content: list[dict] = [{"type": "text", "text": PROMPT}]
-    for jpeg in render_pages(pdf_path):
-        b64 = base64.b64encode(jpeg).decode()
-        content.append({"type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
-    started = time.monotonic()
-    wire: _WireStatement | None = None
-    tokens_in = tokens_out = 0  # every attempt is billed
+def _image_part(jpeg: bytes) -> dict:
+    b64 = base64.b64encode(jpeg).decode()
+    return {"type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+
+
+def _stream_json[W: BaseModel](client: OpenAI, model: str, content: list[dict],
+                               schema: type[W], name: str,
+                               tally: dict[str, int]) -> W:
+    stream = client.chat.completions.create(
+        model=model,
+        temperature=0,  # extraction must be greedy, not sampled
+        max_tokens=MAX_OUTPUT_TOKENS,
+        # thinking tokens count against the output budget and truncate
+        # long statements mid-JSON; extraction is transcription, not
+        # reasoning
+        extra_body={"reasoning": {"enabled": False}},
+        # long generations exceed proxy timeouts unless streamed
+        stream=True,
+        stream_options={"include_usage": True},
+        messages=[{"role": "user", "content": content}],
+        response_format={"type": "json_schema", "json_schema": {
+            "name": name, "strict": True,
+            "schema": schema.model_json_schema()}})
+    parts: list[str] = []
+    finish_reason = None
+    for chunk in stream:
+        if chunk.usage is not None:
+            tally["in"] += chunk.usage.prompt_tokens
+            tally["out"] += chunk.usage.completion_tokens
+        if chunk.choices:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                parts.append(delta)
+            if chunk.choices[0].finish_reason:
+                finish_reason = chunk.choices[0].finish_reason
+    if finish_reason == "length":
+        raise TruncatedOutputError(
+            f"output hit max_tokens={MAX_OUTPUT_TOKENS}; JSON incomplete")
+    return schema.model_validate_json("".join(parts))
+
+
+def _extract[W: BaseModel](client: OpenAI, model: str, content: list[dict],
+                           schema: type[W], name: str,
+                           tally: dict[str, int]) -> W:
     for attempt in range(_MAX_ATTEMPTS):
         try:
-            stream = client.chat.completions.create(
-                model=model,
-                temperature=0,  # extraction must be greedy, not sampled
-                max_tokens=MAX_OUTPUT_TOKENS,
-                # thinking tokens count against the output budget and truncate
-                # long statements mid-JSON; extraction is transcription, not
-                # reasoning
-                extra_body={"reasoning": {"enabled": False}},
-                # long generations exceed proxy timeouts unless streamed
-                stream=True,
-                stream_options={"include_usage": True},
-                messages=[{"role": "user", "content": content}],
-                response_format={"type": "json_schema", "json_schema": {
-                    "name": "bank_statement", "strict": True,
-                    "schema": _WireStatement.model_json_schema()}})
-            parts: list[str] = []
-            finish_reason = None
-            for chunk in stream:
-                if chunk.usage is not None:
-                    tokens_in += chunk.usage.prompt_tokens
-                    tokens_out += chunk.usage.completion_tokens
-                if chunk.choices:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        parts.append(delta)
-                    if chunk.choices[0].finish_reason:
-                        finish_reason = chunk.choices[0].finish_reason
-            if finish_reason == "length":
-                raise TruncatedOutputError(
-                    f"output hit max_tokens={MAX_OUTPUT_TOKENS}; JSON incomplete")
-            wire = _WireStatement.model_validate_json("".join(parts))
-            break
+            return _stream_json(client, model, content, schema, name, tally)
         except Exception as e:
+            # truncation is deterministic at temperature 0: the identical
+            # request truncates identically, so retrying only burns tokens —
+            # the caller falls back to per-page extraction instead
+            if isinstance(e, TruncatedOutputError):
+                raise
             if attempt == _MAX_ATTEMPTS - 1 or not _retryable(e):
                 raise
             if _rate_limited(e):
@@ -209,12 +241,55 @@ def parse_vision(pdf_path: Path, client: OpenAI | None = None,
                 # the same outage window (observed 3/3 back-to-back failures,
                 # then success minutes later)
                 time.sleep(5 * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def _parse_paged(client: OpenAI, model: str, pages: list[bytes],
+                 tally: dict[str, int]) -> _WireStatement:
+    header_content = [{"type": "text", "text": PAGED_HEADER_PROMPT},
+                      _image_part(pages[0])]
+    if len(pages) > 1:
+        # the closing balance usually sits at the end of the last page
+        header_content.append(_image_part(pages[-1]))
+    head = _extract(client, model, header_content,
+                    _WireStatement, "bank_statement", tally)
+    txns = list(head.transactions)
+    for page in pages[1:]:
+        cont = _extract(client, model,
+                        [{"type": "text", "text": PAGED_TXNS_PROMPT},
+                         _image_part(page)],
+                        _WirePageTxns, "statement_page", tally)
+        txns.extend(cont.transactions)
+    return head.model_copy(update={"transactions": txns})
+
+
+def parse_vision(pdf_path: Path, client: OpenAI | None = None,
+                 model: str = VISION_MODEL) -> tuple[StatementDoc, UsageStats]:
+    client = client or get_client()
+    pages = render_pages(pdf_path)
+    content = [{"type": "text", "text": PROMPT},
+               *(_image_part(p) for p in pages)]
+    started = time.monotonic()
+    tally = {"in": 0, "out": 0}  # every attempt is billed
+    try:
+        wire = _extract(client, model, content,
+                        _WireStatement, "bank_statement", tally)
+    except Exception as e:
+        # dense statements overflow the output budget in one shot (10 of 13
+        # held-out failures), come back as schema garbage, or get their long
+        # stream aborted by the provider; per-page extraction keeps each
+        # response small, rows are merged in print order, and the
+        # balance-chain validator checks the merge
+        if not (isinstance(e, (TruncatedOutputError, ValidationError))
+                or type(e) is openai.APIError):  # typed status errors are fatal
+            raise
+        wire = _parse_paged(client, model, pages, tally)
     latency = time.monotonic() - started
     doc = StatementDoc.model_validate(_normalize(wire))  # never trust wire JSON
     usage = UsageStats(
-        input_tokens=tokens_in,
-        output_tokens=tokens_out,
-        cost_usd=(tokens_in * PRICE_IN_PER_MTOK
-                  + tokens_out * PRICE_OUT_PER_MTOK) / 1_000_000,
+        input_tokens=tally["in"],
+        output_tokens=tally["out"],
+        cost_usd=(tally["in"] * PRICE_IN_PER_MTOK
+                  + tally["out"] * PRICE_OUT_PER_MTOK) / 1_000_000,
         latency_s=latency)
     return doc, usage
