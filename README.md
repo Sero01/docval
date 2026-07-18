@@ -91,6 +91,11 @@ two tabs: precomputed samples (zero API cost) and a rate-limited live upload
 (max 5 pages / 10 MB). Hosted on Render's free tier (HF paywalled Gradio
 Spaces), so the first visit after an idle spell takes ~1 min to wake.
 
+Sister project: **[ReconMatch](https://github.com/Sero01/reconmatch)**
+([live demo](https://reconmatch-aa9c.onrender.com)) reconciles DocVal's
+extracted statement lines against an internal ledger — matching, confidence
+scores, and break classification.
+
 ## Cost
 
 Scanned statements run well under a cent each with the default
