@@ -1,7 +1,7 @@
 # How I measure accuracy in document-extraction AI pipelines
 
-*Draft for LinkedIn/blog — Artifact 2 of the roadmap. [TODO markers] get filled
-after the quality round lands.*
+*Draft for LinkedIn/blog — Artifact 2 of the roadmap. Numbers current as of
+the 2026-07-18 held-out re-run (post per-page extraction fix).*
 
 ---
 
@@ -42,11 +42,11 @@ amounts would inflate scores on precisely the failure mode that matters in
 finance — a wrong amount *is* the error.
 
 **Split the numbers by data source, or you're lying to yourself.** My headline
-held-out F1 is **0.51**. Sounds mediocre. The split tells the real story:
-**0.92 on synthetic statements, 0.12 on real scanned Indian bank statements**
-(dense 6-page, ~160-transaction documents). One aggregate number would have
-hidden both that the pipeline works and where it breaks. [TODO: post-fix
-numbers from the paged-extraction quality round.]
+held-out F1 is **0.63**. Sounds mediocre. The split tells the real story:
+**0.92 on synthetic statements, 0.42 on real scanned Indian bank statements**
+(dense 6-page, ~160-transaction documents) — and that 0.42 was **0.12** before
+the paged-extraction fix the harness pointed at. One aggregate number would
+have hidden both that the pipeline works and where it breaks.
 
 **Beware circular evals.** My synthetic generator and my native parser
 understand the same layouts — evaluating the native path on generated
@@ -61,7 +61,7 @@ invisible leakage, inflated scores. Split curation put twins in the same
 split. Check for this in any dataset with derived variants.
 
 **Track cost and latency as first-class metrics.** Every eval row records
-tokens and dollars ($0.005/doc mean on the held-out run, all retries billed).
+tokens and dollars ($0.008/doc mean on the held-out run, all retries billed).
 An accuracy gain that 10×es cost is a different decision than a free one.
 
 ## The regression gate
@@ -84,7 +84,8 @@ discipline that survives contact with a deadline.
   were the model blowing through a 32k output-token cap on dense documents —
   not "bad extraction," but a structural failure mode with a structural fix
   (page-by-page extraction with merged results, sanity-checked by the
-  running-balance validator). [TODO: before/after F1.]
+  running-balance validator). The fix took real-scan F1 from **0.12 to 0.42**
+  and the error rate from **13% to 1%**, at ~1.6× the per-doc cost.
 - **Model nondeterminism at temperature 0.** The same document flipped
   validation pass→fail between identical reruns. If your eval runs once,
   some of your "improvements" are noise.
@@ -107,13 +108,13 @@ discipline that survives contact with a deadline.
 
 | Metric | Value |
 |---|---|
-| Transaction F1 | 0.51 — synthetic 0.92 / real scans 0.12 [TODO post-fix] |
-| Header field accuracy | 0.89 |
-| Validation pass rate | 0.26 |
-| Error rate | 0.13 [TODO post-fix] |
-| Mean cost per document | $0.005 |
+| Transaction F1 | 0.63 — synthetic 0.92 / real scans 0.42 |
+| Header field accuracy | 0.87 |
+| Validation pass rate | 0.25 |
+| Error rate | 0.01 |
+| Mean cost per document | $0.008 |
 
-Publishing the 0.12 feels bad. It's also the entire point: that number is
+Publishing the 0.42 feels bad. It's also the entire point: that number is
 where the work is, and a pipeline whose owner knows its worst number is more
 deployable than one with a single proud aggregate.
 

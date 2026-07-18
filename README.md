@@ -14,23 +14,30 @@ equal the closing balance?
 **Held-out set** (100 docs: 58 real AgamiAI statements + 42 synthetic,
 gemini-2.5-flash-lite; full per-doc results in `eval/baseline_heldout.json`):
 
-| Metric | Held-out |
-|---|---|
-| Transaction F1 | 0.51 |
-| Header field accuracy | 0.89 |
-| Validation pass rate | 0.26 |
-| Error rate | 13% |
-| Mean cost / doc | $0.005 |
-| Mean latency / doc | 68.5 s |
+| Metric | Held-out | (prev baseline) |
+|---|---|---|
+| Transaction F1 | **0.63** | 0.51 |
+| — real AgamiAI statements | **0.42** | 0.12 |
+| — synthetic (datagen) | **0.92** | 0.92 |
+| Header field accuracy | 0.87 | 0.89 |
+| Validation pass rate | 0.25 | 0.26 |
+| Error rate | **1%** | 13% |
+| Mean cost / doc | $0.008 | $0.005 |
+| Mean latency / doc | 70.9 s | 68.5 s |
 
-The aggregate hides the real finding: synthetic docs score F1 ≈ 0.92 while
-real AgamiAI statements score ≈ 0.12 — flash-lite garbles dense real
-statements (row shifts across columns, debit/credit swaps, digit misreads).
-The 13% errors are dense multi-page scans that exceed the 32k output-token
-cap or hit persistent provider stream failures. That gap *is* the baseline
-result: cheap vision models look great on clean synthetic pages and fall
-apart on real scans — which the validation layer flags (pass rate 0.26)
-rather than silently accepting.
+The jump from the previous baseline comes from one change: per-page
+extraction fallback for dense statements. Whole-document extraction of dense
+multi-page scans blew past the 32k output-token cap or collapsed rows across
+pages; splitting those docs into per-page calls cut the error rate from 13%
+to 1% (the one remaining failure is a statement where the model persistently
+emits malformed decimals that schema validation rejects) and took
+real-statement F1 from 0.12 to 0.42, at ~1.6× the per-doc cost.
+
+The by-source gap is still the honest finding: flash-lite reads clean
+synthetic pages at F1 0.92 but garbles dense real statements (row shifts
+across columns, debit/credit swaps, digit misreads) down to 0.42 — and the
+validation layer flags exactly that (pass rate 0.25) rather than silently
+accepting it.
 
 **Bankstatemently Open Benchmark (pending):** third-party score via their
 evaluation API — `scripts/run_bankstatemently.py --submit`.

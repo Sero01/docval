@@ -48,12 +48,12 @@ validation → report).*
 > is just a wrong number with good vibes. Header field accuracy. Validation
 > pass rate. Cost per document."
 
-> "Held-out F1 is 0.51 — and I publish the split: 0.92 on synthetic
-> statements, 0.12 on real dense scans. [TODO: update after quality round.]
-> That 0.12 is the honest number. It told me exactly where the work is: the
+> "Held-out F1 is 0.63 — and I publish the split: 0.92 on synthetic
+> statements, 0.42 on real dense scans. That 0.42 is the honest number — and
+> it used to be 0.12. The harness told me exactly where the work was: the
 > model blows through its output budget on 6-page, 160-transaction documents.
-> The fix is structural — page-by-page extraction, merged, with the balance
-> validator checking the merge."
+> The fix was structural — page-by-page extraction, merged, with the balance
+> validator checking the merge — and it took the error rate from 13% to 1%."
 
 > "And the regression gate runs in CI on every push — an offline subset
 > compared against a committed baseline. If someone's refactor drops F1 by
@@ -85,4 +85,4 @@ validation → report).*
 - [ ] Warm up the Render demo first (free tier sleeps; first load ~1 min)
 - [ ] Have one native + one scanned sample PDF on the desktop
 - [ ] Pre-open: demo tab, GitHub README, issue #1, terminal with eval output
-- [ ] Update the two [TODO] numbers before recording
+- [x] Numbers updated to the 2026-07-18 post-fix held-out run
