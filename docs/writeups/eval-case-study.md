@@ -94,11 +94,21 @@ discipline that survives contact with a deadline.
   errors. Separating transient infrastructure failures (retry with backoff)
   from persistent model failures (fix the approach) changed the error rate
   from 36% to 13% without touching the model.
-- **A third-party benchmark with a broken scorer.** I submitted to a public
-  bank-statement benchmark; every document was rejected by a server-side
-  ground-truth bug — which I could only prove by submitting the benchmark's
-  *own example payload* as a control. Trust third-party numbers, but verify
-  the third party. ([Issue filed.](https://github.com/bankstatemently/bank-statement-parsing-benchmark/issues/1))
+- **A third-party benchmark scoring against the wrong ground truth — since
+  fixed.** I submitted to a public bank-statement benchmark. First every
+  document was rejected outright by a server-side `account.kind` schema error;
+  once that was patched, the scores came back near zero against ground truth
+  that did not match the released PDFs. The only way to prove that was to
+  hand-transcribe one statement character-exact and submit it as a control: it
+  scored **0.146**, with 0/12 on amount and 0/12 on description against a clean
+  12/12 row alignment. A perfect answer cannot score zero unless the answer key
+  belongs to a different document.
+  ([Issue filed](https://github.com/bankstatemently/bank-statement-parsing-benchmark/issues/1),
+  since closed.) They regenerated the ground truth; on dataset v2.1 that same
+  statement scores **0.906** from the pipeline's own extraction — dates and
+  amounts perfect, description still the weak field. Trust third-party numbers,
+  but verify the third party, and report what you find: they will usually fix
+  it.
 - **Currency symbols vs ISO codes.** Benchmark documents printed `$` where
   the schema wanted `USD`. Found in minutes because validation failures
   pointed at the exact field. Normalization is now deterministic code with a
