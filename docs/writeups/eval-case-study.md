@@ -1,7 +1,7 @@
 # How I measure accuracy in document-extraction AI pipelines
 
-*Draft for LinkedIn/blog — Artifact 2 of the roadmap. Numbers current as of
-the 2026-07-18 held-out re-run (post per-page extraction fix).*
+*Published 2026-08-22 at <https://parvez-ahmed.com/eval-case-study/>. Numbers
+current as of the 2026-07-18 held-out re-run (post per-page extraction fix).*
 
 ---
 
