@@ -19,10 +19,21 @@ from docval.config import (PRICE_IN_PER_MTOK, PRICE_OUT_PER_MTOK, VISION_MODEL,
 from docval.schema import StatementDoc, UsageStats
 
 _FORMAT_RULES = (
-    "Dates as YYYY-MM-DD. Amounts as plain decimal strings without currency "
-    "symbols or thousands separators. Each transaction has at most one of "
-    "debit/credit set; rows printed without any amount (e.g. failed or "
-    "informational lines) have both null. Copy descriptions verbatim."
+    "Dates as YYYY-MM-DD. Many rows print only a day and month ('2 okt', "
+    "'3 Jul') or a two-digit year ('03 avr. 25'); complete them from the "
+    "statement period printed on the document — never guess a year. When a "
+    "row has more than one date column, use the posting/booking date (the "
+    "primary Date column), not the value, interest or effective date. "
+    "Amounts as plain decimal strings without currency symbols or thousands "
+    "separators. Each transaction has at most one of debit/credit set; rows "
+    "printed without any amount (e.g. failed or informational lines) have "
+    "both null. The description is the transaction's description/details "
+    "text: when the table has a separate counterparty or payee column, take "
+    "the description column, not the counterparty. Exclude anything that is "
+    "not description text — no date fragments, and no account identifiers or "
+    "reference numbers (IBAN, FPS/transaction ids) printed beneath the row. "
+    "Where the details genuinely wrap onto several printed lines, join them "
+    "with a single space."
 )
 
 PROMPT = (
@@ -118,20 +129,43 @@ def render_pages(pdf_path: Path, dpi: int = 200) -> list[bytes]:
 
 # Models copy printed formats faithfully regardless of prompt instructions;
 # normalization to canonical values is deterministic code, not model behavior.
-_AMOUNT_JUNK = re.compile(r"(?i)\brs\.?\s*|\binr\b|[₹$€£,\s]")
-_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %B %Y")
+_AMOUNT_JUNK = re.compile(r"(?i)\brs\.?\s*|\binr\b|[₹$€£\s]")
+_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %B %Y",
+                 "%d.%m.%Y", "%d %b %y", "%d.%m.%y", "%d/%m/%y")
+_LONE_COMMA_DECIMAL = re.compile(r"^[^,]*,\d{2}$")
 
 
-def _clean_amount(amount: str | None) -> str | None:
-    if amount is None:
-        return None
-    cleaned = _AMOUNT_JUNK.sub("", amount) or amount
+def _decimal_string(raw: str) -> str:
+    """Normalize a printed amount to a plain decimal string.
+
+    Locale is inferred per value rather than configured, because one
+    benchmark run spans Dutch "1.925,00", Indian "7,79,226.50" and
+    French-Canadian "10 662,91": whichever of "," and "." appears last is
+    that value's decimal separator. A lone comma is decimal only when
+    exactly two digits follow it ("19,25"), which is what separates it from
+    US-style grouping ("1,000").
+    """
+    cleaned = _AMOUNT_JUNK.sub("", raw) or raw
+    if "," in cleaned:
+        decimal_is_comma = (cleaned.rfind(",") > cleaned.rfind(".")
+                            if "." in cleaned
+                            else bool(_LONE_COMMA_DECIMAL.match(cleaned)))
+        if decimal_is_comma:
+            return cleaned.replace(".", "").replace(",", ".")
+        cleaned = cleaned.replace(",", "")
     if cleaned.count(".") > 1:
         # misread grouping separators ("6,056.445.83"): every dot but the
         # last is grouping; if the repair is numerically wrong, the
         # balance-chain validator flags it downstream
         whole, _, frac = cleaned.rpartition(".")
         cleaned = whole.replace(".", "") + "." + frac
+    return cleaned
+
+
+def _clean_amount(amount: str | None) -> str | None:
+    if amount is None:
+        return None
+    cleaned = _decimal_string(amount)
     try:
         # "0.00" for an empty cell means no debit/credit at all
         return None if Decimal(cleaned) == 0 else cleaned
@@ -153,13 +187,40 @@ _CURRENCY_SYMBOLS = {"$": "USD", "₹": "INR", "RS": "INR", "RS.": "INR",
                      "€": "EUR", "£": "GBP", "¥": "JPY"}
 
 
+def _repair_year(iso: str, start: str, end: str) -> str:
+    """Pull a transaction date into the statement period when the model
+    invented its year.
+
+    Rows printed without a year ("2 okt", "2 Jul") force the model to guess,
+    and it guesses one unrelated to the statement. Only the year is
+    corrected, and only when some year in the period makes the date fit: a
+    wrong month is a genuine misread and stays visible to the validator.
+    """
+    try:
+        txn = datetime.strptime(iso, "%Y-%m-%d").date()
+        first = datetime.strptime(start, "%Y-%m-%d").date()
+        last = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return iso
+    if first <= txn <= last or first > last:
+        return iso
+    for year in range(first.year, last.year + 1):
+        try:
+            shifted = txn.replace(year=year)
+        except ValueError:  # 29 Feb into a common year
+            continue
+        if first <= shifted <= last:
+            return shifted.isoformat()
+    return iso
+
+
 def _normalize(wire: _WireStatement) -> dict:
     payload = wire.model_dump()
     printed = payload["currency"].strip()
     payload["currency"] = _CURRENCY_SYMBOLS.get(printed.upper(),
                                                 printed.upper())
     for key in ("opening_balance", "closing_balance"):
-        payload[key] = _AMOUNT_JUNK.sub("", payload[key]) or payload[key]
+        payload[key] = _decimal_string(payload[key]) or payload[key]
     for key in ("period_start", "period_end"):
         payload[key] = _clean_date(payload[key])
     for txn in payload["transactions"]:
@@ -167,11 +228,15 @@ def _normalize(wire: _WireStatement) -> dict:
             "Date": txn["txn_date"], "Description": txn["description"],
             "Debit": txn["debit"] or "", "Credit": txn["credit"] or "",
             "Balance": txn["running_balance"] or ""}
-        txn["txn_date"] = _clean_date(txn["txn_date"])
+        txn["txn_date"] = _repair_year(_clean_date(txn["txn_date"]),
+                                       payload["period_start"],
+                                       payload["period_end"])
+        # detail blocks wrap across printed lines; the scored field is one string
+        txn["description"] = " ".join(txn["description"].split())
         txn["debit"] = _clean_amount(txn["debit"])
         txn["credit"] = _clean_amount(txn["credit"])
         if txn["running_balance"] is not None:
-            txn["running_balance"] = (_AMOUNT_JUNK.sub("", txn["running_balance"])
+            txn["running_balance"] = (_decimal_string(txn["running_balance"])
                                       or txn["running_balance"])
     return payload
 

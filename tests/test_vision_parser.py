@@ -153,6 +153,46 @@ def test_misread_separator_amounts_repaired(tmp_path):
     assert doc.transactions[0].credit == Decimal("6056445.83")
 
 
+def test_decimal_comma_amounts_normalized():
+    # Continental statements print "1.925,00"/"19,25" (Bankstatemently
+    # bsb-003, bsb-005). Stripping every comma as grouping inflates those
+    # amounts 100x; the decimal separator is whichever mark comes last.
+    from docval.parsers.vision import _decimal_string
+
+    for printed, expected in [
+            ("-19,25 €", "-19.25"),        # lone comma, two digits: decimal
+            ("1.925,00", "1925.00"),       # Dutch grouping + decimal comma
+            ("10 662,91 $", "10662.91"),   # French-Canadian space grouping
+            ("1,000", "1000"),             # lone comma, three digits: grouping
+            ("7,79,226.50", "779226.50"),  # Indian lakh grouping survives
+            ("₹1,544.32", "1544.32"),
+            ("6,056.445.83", "6056445.83")]:  # misread-separator repair
+        assert _decimal_string(printed) == expected, printed
+
+
+def test_partial_dates_take_year_from_statement_period(tmp_path):
+    # Rows printed "2 okt" carry no year, and the model invents one (2023 for
+    # an Oct-2025 statement, seen on bsb-003). The period is authoritative.
+    from datetime import date
+
+    payload = dict(PAYLOAD, period_start="2025-10-01", period_end="2025-10-31",
+                   transactions=[
+                       {"txn_date": "2023-10-02", "description": "GELDAUTOMAAT",
+                        "debit": "19,25", "credit": None,
+                        "running_balance": None}])
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    assert doc.transactions[0].txn_date == date(2025, 10, 2)
+
+
+def test_multiline_description_collapsed(tmp_path):
+    # Detail blocks wrap across printed lines; the scored field is one string.
+    payload = dict(PAYLOAD, transactions=[
+        {"txn_date": "2026-01-05", "description": "Faster payment\nTO: MTR\n",
+         "debit": "10.00", "credit": None, "running_balance": None}])
+    doc, _ = parse_vision(_scan_pdf(tmp_path), client=StubClient(payload))
+    assert doc.transactions[0].description == "Faster payment TO: MTR"
+
+
 def test_flaky_invalid_json_retried_once(tmp_path):
     class FlakyStub(StubClient):
         def __init__(self, payload):
