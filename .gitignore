@@ -7,3 +7,5 @@ data/*
 eval/results/
 .env
 *.pid
+
+.playwright-mcp/
